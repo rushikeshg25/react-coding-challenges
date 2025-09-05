@@ -1,89 +1,75 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-interface BoundingBox {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
+interface cell {
+  x: number;
+  y: number;
+  isColoured: boolean;
 }
 
 const Page = () => {
-  const [selectedCells, setSelectedCells] = useState<Set<number>>(new Set());
+  const [mat, setMat] = useState<cell[]>([]);
+  const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const [isDragging, setIsDragging] = useState(false);
-  const [boundingBox, setBoundingBox] = useState<BoundingBox | null>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!gridRef.current) return;
-    const { clientX, clientY } = event;
-    const rect = gridRef.current.getBoundingClientRect();
-    const startX = clientX - rect.left;
-    const startY = clientY - rect.top;
-    setSelectedCells(new Set());
+  const handleMousedown = (cell: cell) => {
     setIsDragging(true);
-    setBoundingBox({
-      startX,
-      startY,
-      endX: startX,
-      endY: startY,
-    });
+    setStartPos({ x: cell.x, y: cell.y });
+  };
+  const createMatrix = () => {
+    const newMat = [];
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 10; j++) {
+        newMat.push({ x: i, y: j, isColoured: false });
+      }
+    }
+    setMat(newMat);
   };
 
-  const isCellInBoundingBox = (cellIndex: number, boundingBox: BoundingBox) => {
+  const handleMouseEnter = (cell: cell) => {
+    if (!startPos || !isDragging) return;
+    const endPost = { x: cell.x, y: cell.y };
+    const minx = Math.min(startPos.x, endPost.x);
+    const miny = Math.min(startPos.y, endPost.y);
+    const maxx = Math.max(startPos.x, endPost.x);
+    const maxy = Math.max(startPos.y, endPost.y);
+    setMat((prev) =>
+      prev.map((c) => ({
+        ...c,
+        isColoured: c.x >= minx && c.x <= maxx && c.y >= miny && c.y <= maxy,
+      }))
+    );
+  };
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging || !gridRef.current || !boundingBox) return;
+  useEffect(() => {
+    createMatrix();
+  }, []);
 
-      const rect = gridRef.current.getBoundingClientRect();
-      const endX = e.clientX - rect.left;
-      const endY = e.clientY - rect.top;
-
-      const newBoundingBox = {
-        ...boundingBox,
-        endX,
-        endY,
-      };
-
-      setBoundingBox(newBoundingBox);
-
-      const newSelectedCells = new Set<number>();
-      for (let i = 0; i < 100; i++) {
-        if (isCellInBoundingBox(i, newBoundingBox)) {
-          newSelectedCells.add(i);
-        }
-      }
-      setSelectedCells(newSelectedCells);
-    },
-    [isDragging, boundingBox]
-  );
+  const handleMouseup = () => {
+    setIsDragging(false);
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center w-screen h-screen gap-3">
-      <h1>Selectable Grid</h1>
-      <div
-        className="grid grid-cols-10 gap-1"
-        ref={gridRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        {Array.from(
-          {
-            length: 100,
-          },
-          (_, index) => {
-            return (
-              <div
-                key={index}
-                className="border border-black  p-4 text-center"
-              ></div>
-            );
-          }
-        )}
-      </div>
+    <div
+      className="flex flex-col items-center justify-center h-screen w-screen"
+      onMouseUp={handleMouseup}
+    >
+      {
+        <div className="grid grid-cols-10 gap-1">
+          {mat.map((cell, idx) => (
+            <div
+              className="size-10 border border-black"
+              style={{
+                backgroundColor: cell.isColoured ? 'red' : 'white',
+              }}
+              key={idx}
+              onMouseDown={() => handleMousedown(cell)}
+              onMouseEnter={() => handleMouseEnter(cell)}
+            ></div>
+          ))}
+        </div>
+      }
     </div>
   );
 };
